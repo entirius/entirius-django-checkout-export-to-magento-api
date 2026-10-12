@@ -1,7 +1,21 @@
 [project]
 name = "entirius-django-checkout-export-to-magento-api"
 version = "2.0.0"
-description = "Export of Volkanos checkout orders, payments and shipments to the Magento 2 API"
+description = "Order, payment and shipment export from the Entirius checkout to a Magento 2 store over its REST API"
+keywords = ["django", "magento", "magento2", "checkout", "order-export", "ecommerce", "entirius"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business",
+]
 authors = [{ name = "Entirius" }]
 readme = "README.md"
 requires-python = ">=3.11"
@@ -19,7 +33,11 @@ dev  = ["ruff", "pre-commit"]
 test = ["pytest", "pytest-django", "dj-database-url", "psycopg[binary]"]
 
 [project.urls]
+Homepage = "https://docs.entirius.com/"
+Documentation = "https://github.com/entirius/entirius-django-checkout-export-to-magento-api/tree/develop/docs"
 Repository = "https://github.com/entirius/entirius-django-checkout-export-to-magento-api"
+Changelog = "https://github.com/entirius/entirius-django-checkout-export-to-magento-api/releases"
+Issues = "https://github.com/entirius/entirius-django-checkout-export-to-magento-api/issues"
 
 [build-system]
 requires = ["hatchling"]
