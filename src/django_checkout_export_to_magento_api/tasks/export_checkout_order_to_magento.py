@@ -33,6 +33,7 @@ from magento2_sdk.utils import DecimalEncoder
 
 from django_checkout_export_to_magento_api import settings
 from django_checkout_export_to_magento_api.models import Channel, OrderInMagento
+from django_checkout_export_to_magento_api.payment_selection import settling_payment_code, settling_payment_intent
 from django_checkout_export_to_magento_api.repository import order_find_by, shipping_method_find_by
 
 from ..bi import ExportOrderToMagentoEvent
@@ -211,13 +212,14 @@ def export_checkout_order_to_magento(
 
         report["is_shipping_collected"] = True
 
-        if order_data.payment_method.code in settings.MAPPING_PAYMENT_METHODS.keys():
-            magento_name = settings.MAPPING_PAYMENT_METHODS[order_data.payment_method.code]
+        payment_code = settling_payment_code(checkout_order, order_data)
+        if payment_code in settings.MAPPING_PAYMENT_METHODS.keys():
+            magento_name = settings.MAPPING_PAYMENT_METHODS[payment_code]
         else:
             magento_name = settings.MAPPING_PAYMENT_METHODS["default_payment_magento_name"]
 
         payment_additional_information = {}
-        if payment_intent := checkout_order.payment_items.all().first():
+        if payment_intent := settling_payment_intent(checkout_order):
             payment_additional_information = {
                 "additional_information": {"transaction_id": payment_intent.external_order_id}
             }

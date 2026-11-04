@@ -13,6 +13,7 @@ from magento2_sdk.services import InvoiceService
 
 from django_checkout_export_to_magento_api import settings
 from django_checkout_export_to_magento_api.models import Channel, InvoiceInMagento, OrderInMagento
+from django_checkout_export_to_magento_api.payment_selection import settling_payment_intent
 from django_checkout_export_to_magento_api.repository import order_find_by
 
 from ..bi import ExportOrderPaymentToMagentoEvent
@@ -52,7 +53,10 @@ def export_order_payment_to_magento(
             }
         )
         report["is_order_found"] = True
-        checkout_payment: CheckoutPayment = CheckoutPayment.objects.get(order=checkout_order)
+        # [voucher, gateway] has two intents: the invoice waits for the gateway, not the voucher debited at order time
+        checkout_payment: CheckoutPayment | None = settling_payment_intent(checkout_order)
+        if checkout_payment is None:
+            raise CheckoutPayment.DoesNotExist(f"Order {checkout_order.pretty_id} has no payment")
         report["payment_status"] = checkout_payment.payment_status
         if checkout_payment.payment_status != PaymentIntentStatus.COMPLETE:
             report["is_payment_complete"] = False
