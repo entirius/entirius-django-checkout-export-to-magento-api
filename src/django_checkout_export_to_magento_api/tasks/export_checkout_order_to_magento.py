@@ -4,7 +4,7 @@
 
 import json
 import logging
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django_checkout.domain.customs_threshold import ABOVE_THRESHOLD
 from django_checkout.domain.dto.address import AddressData
@@ -33,7 +33,11 @@ from magento2_sdk.utils import DecimalEncoder
 
 from django_checkout_export_to_magento_api import settings
 from django_checkout_export_to_magento_api.models import Channel, OrderInMagento
-from django_checkout_export_to_magento_api.payment_selection import settling_payment_code, settling_payment_intent
+from django_checkout_export_to_magento_api.payment_selection import (
+    settling_payment_code,
+    settling_payment_intent,
+    voucher_codes,
+)
 from django_checkout_export_to_magento_api.repository import order_find_by, shipping_method_find_by
 
 from ..bi import ExportOrderToMagentoEvent
@@ -43,6 +47,9 @@ MAGENTO_TOKEN = settings.MAGENTO2_TOKEN_FOR_CHECKOUT_EXPORT
 
 logger = logging.getLogger(__name__)
 logger_process = logging.getLogger("process")
+
+CENT = Decimal(".01")
+VOUCHER_DESCRIPTION = "Voucher"
 
 
 def map_items(items_checkout: list[ItemData | ValidatedItemData], checkout_order: Order) -> list[Item]:
@@ -119,6 +126,54 @@ def map_discount_codes(discounts: list[DiscountData | ValidatedDiscountData]) ->
         return ""
     else:
         return " ".join(codes)
+
+
+def add_item_discount(item: Item, amount: Decimal) -> None:
+    """Add to a line's discount; the SDK copies ``base_discount_amount`` once, at construction."""
+    item.discount_amount += amount
+    item.base_discount_amount = item.discount_amount
+
+
+def _lines_left(items: list[Item]) -> list[Decimal]:
+    """What each line still costs after its discounts."""
+    return [item.row_total_incl_tax - item.discount_amount for item in items]
+
+
+def voucher_amount(order_data: OrderData, items: list[Item]) -> Decimal:
+    """What the vouchers took off the order: never more than the lines still cost.
+
+    Before checkout 10.1 ``voucher_amount_applied`` is the voucher module's figure, which may exceed the cart; the
+    total lost at most the lines.
+    """
+    applied = Decimal(str(getattr(order_data.cart, "voucher_amount_applied", None) or 0)).quantize(CENT)
+    return max(min(applied, sum(_lines_left(items), Decimal(0))), Decimal(0))
+
+
+def spread_voucher(items: list[Item], amount: Decimal) -> None:
+    """Lay the voucher on the lines pro rata to what each still costs; Magento's invoice sums the line discounts.
+
+    Rounding the running share keeps the cents exact: the lines together carry ``amount``, to the cent.
+    """
+    left = _lines_left(items)
+    whole = sum(left, Decimal(0))
+    if amount <= 0 or whole <= 0:
+        return
+    running, laid = Decimal(0), Decimal(0)
+    for item, line_left in zip(items, left, strict=True):
+        running += line_left
+        share = (amount * running / whole).quantize(CENT, rounding=ROUND_HALF_UP) - laid
+        add_item_discount(item, share)
+        laid += share
+
+
+def voucher_description(order_data: OrderData, codes: set[str]) -> str:
+    """``Voucher`` with the masked codes checkout keeps (``26WT****``) of the voucher entries; a raw code never leaves."""
+    masked = [
+        entry.pay_code
+        for entry in order_data.payment_method or []
+        if entry.code in codes and getattr(entry, "pay_code", None) and "*" in entry.pay_code
+    ]
+    return " ".join([VOUCHER_DESCRIPTION, *masked])
 
 
 def export_checkout_order_to_magento(
@@ -214,8 +269,12 @@ def export_checkout_order_to_magento(
 
         payment_intent = settling_payment_intent(checkout_order)
         payment_code = settling_payment_code(payment_intent, order_data)
+        voucher = voucher_amount(order_data, items)
         if payment_code in settings.MAPPING_PAYMENT_METHODS.keys():
             magento_name = settings.MAPPING_PAYMENT_METHODS[payment_code]
+        elif voucher > 0 and Decimal(order_data.total) <= 0:
+            # The vouchers cover the order: no method settles anything.
+            magento_name = settings.MAPPING_PAYMENT_METHODS[settings.VOUCHER_PAYMENT_KEY]
         else:
             magento_name = settings.MAPPING_PAYMENT_METHODS["default_payment_magento_name"]
 
@@ -241,16 +300,30 @@ def export_checkout_order_to_magento(
             if Decimal(discounts[0].price_discount) != discount_amount and discounts[0].price_discount > 0:
                 discounts_diff = Decimal(discounts[0].price_discount) - discount_amount
                 item_with_max_price = max(items, key=lambda item: item.price)
-                item_with_max_price.discount_amount += discounts_diff
+                add_item_discount(item_with_max_price, discounts_diff)
                 discount_amount += discounts_diff
 
             # dicount procentowy
-            if payment.amount_ordered - discount_amount != order_data.total and discounts[0].percent_discount > 0:
-                discounts_diff = Decimal(payment.amount_ordered - discount_amount) - order_data.total
+            if (
+                payment.amount_ordered - discount_amount != order_data.total + voucher
+                and discounts[0].percent_discount > 0
+            ):
+                discounts_diff = Decimal(payment.amount_ordered - discount_amount) - order_data.total - voucher
                 if discounts_diff < Decimal(0.15):
                     item_with_max_price = max(items, key=lambda item: item.price)
-                    item_with_max_price.discount_amount += discounts_diff
+                    add_item_discount(item_with_max_price, discounts_diff)
                     discount_amount += discounts_diff
+
+        # Checkout takes the voucher off the total, not off the lines: in Magento it is an order discount.
+        # Measured again after the code fix-ups above, which may have moved a line's discount.
+        voucher = voucher_amount(order_data, items) if voucher > 0 else voucher
+        if voucher > 0:
+            spread_voucher(items, voucher)
+            discount_amount += voucher
+            description = voucher_description(order_data, voucher_codes(checkout_order))
+            discount_description = " ".join(filter(None, [discount_code, description]))
+        else:
+            discount_description = discount_code
 
         if Decimal(payment.amount_ordered - discount_amount) != Decimal(order_data.total):
             logger.info(
@@ -284,7 +357,7 @@ def export_checkout_order_to_magento(
             discount_amount=-1 * discount_amount,
             discount_tax_compensation_amount=tax_amount - order_data.total_tax,
             coupon_code=discount_code,
-            discount_description=discount_code,
+            discount_description=discount_description,
             # TODO after adding accounts to checkout change to customer
             customer_email=billing_address.email,
             customer_firstname=billing_address.firstname,

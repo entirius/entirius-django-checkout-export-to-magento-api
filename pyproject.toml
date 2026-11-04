@@ -22,7 +22,7 @@ requires-python = ">=3.11"
 license = "MPL-2.0"
 dependencies = [
     "django>=5.0",
-    "entirius-django-checkout>=9.0.0",
+    "entirius-django-checkout>=9.3.0",
     "entirius-py-magento2-sdk>=2.0.0",
     "entirius-py-bievents>=2.0.0",
     "entirius-py-idx-normalizator>=2.0.0",

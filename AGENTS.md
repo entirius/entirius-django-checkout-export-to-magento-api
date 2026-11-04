@@ -46,6 +46,12 @@ Payments: checkout's `payment_method` is a list (`[voucher, payu]`), entry `[0]`
 method code, the transaction id and the invoice's payment status come from the settling payment
 (`payment_selection.py`), never `payment_method[0]` or `payment_items.first()`.
 
+Vouchers: checkout takes them off the order total, not off the lines. The export sends them as an order discount
+laid pro rata on the lines (Magento's invoice sums line discounts), `discount_description` = `Voucher` + the masked
+codes checkout keeps (a code without `*` is never sent), `coupon_code` untouched. An order the vouchers cover goes
+with `MAPPING_PAYMENT_METHODS["voucher_payment_magento_name"]` (default `free`). No Magento module needed: Open
+Source has no gift card or split tender.
+
 Models mirror what has been pushed to Magento: one row per exported order / invoice / shipment,
 FK to `django_checkout` (Order / PaymentIntent / ShippingIntent). `Channel` maps a checkout
 channel to a Magento store (`default_magento_store_id`, per-language store map, email flags).
@@ -64,7 +70,7 @@ What each is used for: README, section Requirements.
 |---|---|---|
 | `MAGENTO2_URL_FOR_CHECKOUT_EXPORT` | `None` | Magento REST base URL |
 | `MAGENTO2_TOKEN_FOR_CHECKOUT_EXPORT` | `None` | Magento API token |
-| `MAPPING_PAYMENT_METHODS` | see `settings.py` | checkout provider → Magento payment code |
+| `MAPPING_PAYMENT_METHODS` | see `settings.py` | checkout provider → Magento payment code; `default_payment_magento_name` (`banktransfer`), `voucher_payment_magento_name` (`free`, orders the vouchers cover) |
 | `MAPPING_SHIPPING_METHODS` | see `settings.py` | checkout shipping → Magento carrier code |
 | `SEND_FIELD_EXTENSION_ATTRIBUTES` | `["requested_invoice", "is_over_vat_threshold"]` | order extension attributes forwarded to Magento |
 | `MAGENTO2_EXPORT_GROUND_DATETIME` | `None` | only export orders created after this datetime |

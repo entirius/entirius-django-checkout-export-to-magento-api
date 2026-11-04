@@ -39,3 +39,9 @@ def settling_payment_code(intent: PaymentIntent | None, order_data: OrderData) -
         return intent.code
     entry = _first_settling(order_data.payment_method or [], lambda entry: entry.code == PaymentProvider.VOUCHER)
     return entry.code if entry else None
+
+
+def voucher_codes(order: Order) -> set[str]:
+    """The codes the order's vouchers were paid with: its voucher intents' and the provider's own."""
+    intents = order.payment_items.select_related("method")
+    return {intent.code for intent in intents if _is_voucher_intent(intent)} | {PaymentProvider.VOUCHER}
