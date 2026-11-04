@@ -20,9 +20,11 @@ def _first_settling(rows: list, is_voucher) -> object | None:  # noqa: ANN001
 
 
 def _is_voucher_intent(intent: PaymentIntent) -> bool:
-    if intent.method is not None:
-        return intent.method.provider == PaymentProvider.VOUCHER
-    return intent.code == PaymentProvider.VOUCHER  # the method was removed (SET_NULL)
+    """Its method's provider decides; the code only without one (method removed, SET_NULL, or provider unset)."""
+    provider = intent.method.provider if intent.method is not None else None
+    if provider is not None:
+        return str(provider) == PaymentProvider.VOUCHER
+    return intent.code == PaymentProvider.VOUCHER
 
 
 def settling_payment_intent(order: Order) -> PaymentIntent | None:
@@ -31,9 +33,9 @@ def settling_payment_intent(order: Order) -> PaymentIntent | None:
     return _first_settling(intents, _is_voucher_intent)
 
 
-def settling_payment_code(order: Order, order_data: OrderData) -> str | None:
-    """The code of that method. A split part has no intent of its own: its code comes from the body."""
-    if intent := settling_payment_intent(order):
+def settling_payment_code(intent: PaymentIntent | None, order_data: OrderData) -> str | None:
+    """The code of the settling ``intent``. A split part has no intent of its own: its code comes from the body."""
+    if intent is not None:
         return intent.code
     entry = _first_settling(order_data.payment_method or [], lambda entry: entry.code == PaymentProvider.VOUCHER)
     return entry.code if entry else None

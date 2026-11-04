@@ -56,7 +56,7 @@ def export_order_payment_to_magento(
         # [voucher, gateway] has two intents: the invoice waits for the gateway, not the voucher debited at order time
         checkout_payment: CheckoutPayment | None = settling_payment_intent(checkout_order)
         if checkout_payment is None:
-            raise CheckoutPayment.DoesNotExist(f"Order {checkout_order.pretty_id} has no payment")
+            raise Exception(f"Order has no payment, can not proceed with Invoice: order_pretty_id={order_pretty_id}")
         report["payment_status"] = checkout_payment.payment_status
         if checkout_payment.payment_status != PaymentIntentStatus.COMPLETE:
             report["is_payment_complete"] = False

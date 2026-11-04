@@ -17,7 +17,7 @@ from django.core.management import call_command
 from django_checkout.enums import OrderStatus, PaymentIntentStatus, PaymentProvider
 from django_checkout.models import Channel, Order, PaymentIntent, PaymentMethod
 
-from django_checkout_export_to_magento_api.models import OrderInMagento
+from django_checkout_export_to_magento_api.models import InvoiceInMagento, OrderInMagento
 from django_checkout_export_to_magento_api.payment_selection import settling_payment_code, settling_payment_intent
 from django_checkout_export_to_magento_api.tasks import export_order_payment_to_magento
 
@@ -61,19 +61,19 @@ class TestTheSettlingPayment:
         payu = _intent(order, "payu", PaymentProvider.PAYU, PENDING)
 
         assert settling_payment_intent(order) == payu
-        assert settling_payment_code(order, BODY) == "payu"
+        assert settling_payment_code(payu, BODY) == "payu"
 
     def test_a_voucher_method_named_otherwise_is_still_a_voucher(self, order):
         _intent(order, "gift-card", PaymentProvider.VOUCHER, COMPLETE)
         _intent(order, "payu", PaymentProvider.PAYU, PENDING)
 
-        assert settling_payment_code(order, BODY) == "payu"
+        assert settling_payment_code(settling_payment_intent(order), BODY) == "payu"
 
     def test_a_removed_voucher_method_is_told_by_its_code(self, order):
         _intent(order, "voucher", None, COMPLETE)
         _intent(order, "payu", PaymentProvider.PAYU, PENDING)
 
-        assert settling_payment_code(order, BODY) == "payu"
+        assert settling_payment_code(settling_payment_intent(order), BODY) == "payu"
 
     def test_full_voucher_coverage_is_the_voucher(self, order):
         voucher = _intent(order, "voucher", PaymentProvider.VOUCHER, COMPLETE)
@@ -83,7 +83,7 @@ class TestTheSettlingPayment:
     def test_an_order_without_intents_reads_the_body(self, order):
         """A split part is created without payment processing."""
         assert settling_payment_intent(order) is None
-        assert settling_payment_code(order, BODY) == "payu"
+        assert settling_payment_code(settling_payment_intent(order), BODY) == "payu"
 
 
 @pytest.mark.django_db
@@ -92,7 +92,9 @@ class TestTheInvoice:
         _intent(order, "voucher", PaymentProvider.VOUCHER, COMPLETE)
         _intent(order, "payu", PaymentProvider.PAYU, PENDING)
 
-        export_order_payment_to_magento(order_pk=order.pk)  # returns before Magento: no OrderInMagento needed
+        export_order_payment_to_magento(order_pk=order.pk)
+
+        assert not InvoiceInMagento.objects.exists()
 
     def test_the_command_exports_an_order_once(self, order, monkeypatch):
         _intent(order, "voucher", PaymentProvider.VOUCHER, COMPLETE)

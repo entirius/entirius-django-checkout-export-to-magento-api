@@ -212,14 +212,15 @@ def export_checkout_order_to_magento(
 
         report["is_shipping_collected"] = True
 
-        payment_code = settling_payment_code(checkout_order, order_data)
+        payment_intent = settling_payment_intent(checkout_order)
+        payment_code = settling_payment_code(payment_intent, order_data)
         if payment_code in settings.MAPPING_PAYMENT_METHODS.keys():
             magento_name = settings.MAPPING_PAYMENT_METHODS[payment_code]
         else:
             magento_name = settings.MAPPING_PAYMENT_METHODS["default_payment_magento_name"]
 
         payment_additional_information = {}
-        if payment_intent := settling_payment_intent(checkout_order):
+        if payment_intent is not None:
             payment_additional_information = {
                 "additional_information": {"transaction_id": payment_intent.external_order_id}
             }
