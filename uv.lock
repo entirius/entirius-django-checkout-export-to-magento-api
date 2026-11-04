@@ -766,7 +766,7 @@ wheels = [
 
 [[package]]
 name = "entirius-django-checkout-export-to-magento-api"
-version = "2.0.1"
+version = "2.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "django", version = "5.2.18", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
