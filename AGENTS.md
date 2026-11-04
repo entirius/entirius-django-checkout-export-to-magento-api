@@ -34,12 +34,17 @@ src/django_checkout_export_to_magento_api/
 ├── settings.py             # host-overridable settings (URL/token, method mappings)
 ├── models.py               # Channel + OrderInMagento / InvoiceInMagento / ShipmentInMagento
 ├── repository.py           # order lookups (by pk / order_id / pretty_id)
+├── payment_selection.py    # the payment Magento hears about (the one that settles what vouchers leave)
 ├── dto.py                  # OrderIdType enum-ish helper
 ├── bi.py                   # BI events (bievents)
 ├── admin.py                # ModelAdmin registrations (4 admins)
 ├── tasks/                  # export/cancel task functions (called by commands, synchronous)
 └── management/commands/    # export-checkout-order(s), export-order(s)-payment/shipment, cancel
 ```
+
+Payments: checkout's `payment_method` is a list (`[voucher, payu]`), entry `[0]` may be the voucher. The payment
+method code, the transaction id and the invoice's payment status come from the settling payment
+(`payment_selection.py`), never `payment_method[0]` or `payment_items.first()`.
 
 Models mirror what has been pushed to Magento: one row per exported order / invoice / shipment,
 FK to `django_checkout` (Order / PaymentIntent / ShippingIntent). `Channel` maps a checkout

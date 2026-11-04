@@ -17,7 +17,8 @@ Paramteters (only one at a time of them is required):
 | order_pretty_id   | str  | +        | -       |
 
 Conditions:
-- Only orders with payment status COMPLETE
+- Only orders whose settling payment is COMPLETE: the method that pays what the vouchers leave (a voucher next
+  to PayU waits for PayU), the voucher's when the vouchers cover the order
 - Only orders with succes entry in OrderInMagento table
 
 ## Export orders payment to magento as Invoice
@@ -34,7 +35,8 @@ Paramteters:
 
 Conditions:
 - Only orders with created date in range of last days of parameter
-- Only orders with payment status COMPLETE
+- Only orders whose settling payment is COMPLETE: the method that pays what the vouchers leave (a voucher next
+  to PayU waits for PayU), the voucher's when the vouchers cover the order
 - Only orders with succes entry in OrderInMagento table
 - Only orders without succes entry in InvoiceInMagento table
 
