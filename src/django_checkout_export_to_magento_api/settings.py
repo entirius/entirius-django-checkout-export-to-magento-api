@@ -7,8 +7,11 @@ from django.conf import settings
 MAGENTO2_URL_FOR_CHECKOUT_EXPORT = getattr(settings, "MAGENTO2_URL_FOR_CHECKOUT_EXPORT", None)
 MAGENTO2_TOKEN_FOR_CHECKOUT_EXPORT = getattr(settings, "MAGENTO2_TOKEN_FOR_CHECKOUT_EXPORT", None)
 
+VOUCHER_PAYMENT_KEY = "voucher_payment_magento_name"
+
 MAPPING_PAYMENT_METHODS_DEFAULT = {
     "default_payment_magento_name": "banktransfer",
+    VOUCHER_PAYMENT_KEY: "free",
     "cod": "cashondelivery",
     "paypal": "volkanos_paypal",
 }
@@ -19,6 +22,10 @@ if not isinstance(MAPPING_PAYMENT_METHODS, dict):
 
 if "default_payment_magento_name" not in MAPPING_PAYMENT_METHODS.keys():
     MAPPING_PAYMENT_METHODS["default_payment_magento_name"] = "banktransfer"
+
+# An order the vouchers cover leaves nothing to settle: Magento Open Source's zero-total method.
+if VOUCHER_PAYMENT_KEY not in MAPPING_PAYMENT_METHODS.keys():
+    MAPPING_PAYMENT_METHODS[VOUCHER_PAYMENT_KEY] = "free"
 
 MAPPING_SHIPPING_METHODS_DEFAULT = {"default_shipping_magento_code": "flatrate_flatrate"}
 

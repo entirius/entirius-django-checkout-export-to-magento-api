@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.1.0 — 2026-11-04
+
+### Added
+
+- `MAPPING_PAYMENT_METHODS["voucher_payment_magento_name"]` (default `free`): the Magento payment of an order the
+  vouchers cover.
+
+### Fixed
+
+- An order paid with a voucher, in part or in full, exports to Magento. Checkout takes the voucher off the order
+  total and the export's amount check failed on every such order. The voucher goes as an order discount spread over
+  the lines, described as `Voucher` with its masked code.
+- A line's `base_discount_amount` follows the cent a discount code's rounding moves onto it.
+
+### Changed
+
+- Requires entirius-django-checkout >= 9.3.0: from that release a voucher leaves the lines at their sold price.
+  Before it, checkout lowered the lines and counted the voucher in their discount too, which no export can add up.
+
 ## 2.0.1 — 2026-11-04
 
 ### Fixed
