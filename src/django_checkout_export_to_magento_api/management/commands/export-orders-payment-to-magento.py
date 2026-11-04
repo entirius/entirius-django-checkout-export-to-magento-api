@@ -37,12 +37,17 @@ class Command(BaseCommand):
             days = options["days"]
 
         invoice_in_magento = InvoiceInMagento.objects.filter(success=True).values("checkout_payment")
-        orders: list[Order] = Order.objects.filter(
-            channel__idx=channel_idx,
-            created__gte=timezone.now() - timedelta(days=days),
-            payment_items__payment_status=PaymentIntentStatus.COMPLETE,
-            order_in_magento__success=True,
-        ).exclude(payment_items__in=invoice_in_magento)
+        # distinct: an order with two COMPLETE intents (voucher and gateway) must not be invoiced twice
+        orders: list[Order] = (
+            Order.objects.filter(
+                channel__idx=channel_idx,
+                created__gte=timezone.now() - timedelta(days=days),
+                payment_items__payment_status=PaymentIntentStatus.COMPLETE,
+                order_in_magento__success=True,
+            )
+            .exclude(payment_items__in=invoice_in_magento)
+            .distinct()
+        )
         errors = 0
         for order in orders:
             try:
