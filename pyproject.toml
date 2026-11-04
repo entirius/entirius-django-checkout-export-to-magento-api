@@ -1,6 +1,6 @@
 [project]
 name = "entirius-django-checkout-export-to-magento-api"
-version = "2.0.0"
+version = "2.0.1"
 description = "Order, payment and shipment export from the Entirius checkout to a Magento 2 store over its REST API"
 keywords = ["django", "magento", "magento2", "checkout", "order-export", "ecommerce", "entirius"]
 classifiers = [
